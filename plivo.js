@@ -4,6 +4,63 @@
 
 /*(c) 2009–2013 by Jeff Mott. All rights reserved.  Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met: Redistributions of source code must retain the above copyright notice, this list of conditions, and the following disclaimer.  Redistributions in binary form must reproduce the above copyright notice, this list of conditions, and the following disclaimer in the documentation or other materials provided with the distribution.  Neither the name CryptoJS nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS," AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE, ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.*/
 
+/*The following source has been unminified and modified to remove the red dot from Google Chrome's browser tab when not in an active call.*/
+
+function FABridge(a, b) {
+    return this.target = a, this.remoteTypeCache = {}, this.remoteInstanceCache = {}, this.remoteFunctionCache = {}, this.localFunctionCache = {}, this.bridgeID = FABridge.nextBridgeID++, this.name = b, this.nextLocalFuncID = 0, FABridge.instances[this.name] = this, FABridge.idMap[this.bridgeID] = this, this
+}
+
+function instanceFactory(a) {
+    return this.fb_instance_id = a, this
+}
+
+function FABridge__invokeJSFunction(a) {
+    var b = a[0],
+        c = a.concat();
+    c.shift();
+    var d = FABridge.extractBridgeFromID(b);
+    return d.invokeLocalFunction(b, c)
+}
+
+function FABridge__bridgeInitialized(a) {
+    var b = document.getElementsByTagName("object"),
+        c = b.length,
+        d = [];
+    if (c > 0)
+        for (var e = 0; c > e; e++) "undefined" != typeof b[e].SetVariable && (d[d.length] = b[e]);
+    var f = document.getElementsByTagName("embed"),
+        g = f.length,
+        h = [];
+    if (g > 0)
+        for (var i = 0; g > i; i++) "undefined" != typeof f[i].SetVariable && (h[h.length] = f[i]);
+    var j = d.length,
+        k = h.length,
+        l = "bridgeName=" + a;
+    if (1 == j && !k || 1 == j && 1 == k) FABridge.attachBridge(d[0], a);
+    else if (1 != k || j) {
+        var m = !1;
+        if (j > 1)
+            for (var n = 0; j > n; n++) {
+                for (var o = d[n].childNodes, p = 0; p < o.length; p++) {
+                    var q = o[p];
+                    if (1 == q.nodeType && "param" == q.tagName.toLowerCase() && "flashvars" == q.name.toLowerCase() && q.value.indexOf(l) >= 0) {
+                        FABridge.attachBridge(d[n], a), m = !0;
+                        break
+                    }
+                }
+                if (m) break
+            }
+        if (!m && k > 1)
+            for (var r = 0; k > r; r++) {
+                var s = h[r].attributes.getNamedItem("flashVars").nodeValue;
+                if (s.indexOf(l) >= 0) {
+                    FABridge.attachBridge(h[r], a);
+                    break
+                }
+            }
+    } else FABridge.attachBridge(h[0], a);
+    return !0
+}
 var BrowserDetect = {
     init: function() {
         this.browser = this.searchString(this.dataBrowser) || "An unknown browser", this.version = this.searchVersion(navigator.userAgent) || this.searchVersion(navigator.appVersion) || "an unknown version", this.fullVersion = this.searchFullVersion(navigator.userAgent) || this.searchVersion(navigator.appVersion) || "an unknown version", this.OS = this.searchString(this.dataOS) || "an unknown OS", this.fullOS = this.searchOSVersion() || void 0
@@ -108,161 +165,158 @@ var BrowserDetect = {
     }],
     isWebrtcSupported: function() {
         var a = window.PeerConnection || window.webkitPeerConnection00 || window.webkitRTCPeerConnection || window.mozRTCPeerConnection;
-        return a && "Chrome" == this.browser && this.version >= 25 ? !0 : !1
+        return a ? "Chrome" == this.browser && this.version >= 25 ? !0 : !1 : !1
     }
 };
-
 BrowserDetect.init();
-
 var CryptoJS = CryptoJS || function(a, b) {
-    var c = {}, d = c.lib = {}, e = d.Base = function() {
-            function a() {}
-            return {
-                extend: function(b) {
-                    a.prototype = this;
-                    var c = new a;
-                    return b && c.mixIn(b), c.$super = this, c
+        var c = {}, d = c.lib = {}, e = d.Base = function() {
+                function a() {}
+                return {
+                    extend: function(b) {
+                        a.prototype = this;
+                        var c = new a;
+                        return b && c.mixIn(b), c.$super = this, c
+                    },
+                    create: function() {
+                        var a = this.extend();
+                        return a.init.apply(a, arguments), a
+                    },
+                    init: function() {},
+                    mixIn: function(a) {
+                        for (var b in a) a.hasOwnProperty(b) && (this[b] = a[b]);
+                        a.hasOwnProperty("toString") && (this.toString = a.toString)
+                    },
+                    clone: function() {
+                        return this.$super.extend(this)
+                    }
+                }
+            }(),
+            f = d.WordArray = e.extend({
+                init: function(a, c) {
+                    a = this.words = a || [], this.sigBytes = c != b ? c : 4 * a.length
                 },
-                create: function() {
-                    var a = this.extend();
-                    return a.init.apply(a, arguments), a
+                toString: function(a) {
+                    return (a || h).stringify(this)
                 },
-                init: function() {},
-                mixIn: function(a) {
-                    for (var b in a) a.hasOwnProperty(b) && (this[b] = a[b]);
-                    a.hasOwnProperty("toString") && (this.toString = a.toString)
+                concat: function(a) {
+                    var b = this.words,
+                        c = a.words,
+                        d = this.sigBytes,
+                        a = a.sigBytes;
+                    if (this.clamp(), d % 4)
+                        for (var e = 0; a > e; e++) b[d + e >>> 2] |= (c[e >>> 2] >>> 24 - 8 * (e % 4) & 255) << 24 - 8 * ((d + e) % 4);
+                    else if (65535 < c.length)
+                        for (e = 0; a > e; e += 4) b[d + e >>> 2] = c[e >>> 2];
+                    else b.push.apply(b, c);
+                    return this.sigBytes += a, this
+                },
+                clamp: function() {
+                    var b = this.words,
+                        c = this.sigBytes;
+                    b[c >>> 2] &= 4294967295 << 32 - 8 * (c % 4), b.length = a.ceil(c / 4)
                 },
                 clone: function() {
-                    return this.$super.extend(this)
+                    var a = e.clone.call(this);
+                    return a.words = this.words.slice(0), a
+                },
+                random: function(b) {
+                    for (var c = [], d = 0; b > d; d += 4) c.push(4294967296 * a.random() | 0);
+                    return f.create(c, b)
                 }
-            }
-        }(),
-        f = d.WordArray = e.extend({
-            init: function(a, c) {
-                a = this.words = a || [], this.sigBytes = c != b ? c : 4 * a.length
-            },
-            toString: function(a) {
-                return (a || h).stringify(this)
-            },
-            concat: function(a) {
-                var b = this.words,
-                    c = a.words,
-                    d = this.sigBytes,
-                    a = a.sigBytes;
-                if (this.clamp(), d % 4)
-                    for (var e = 0; a > e; e++) b[d + e >>> 2] |= (c[e >>> 2] >>> 24 - 8 * (e % 4) & 255) << 24 - 8 * ((d + e) % 4);
-                else if (65535 < c.length)
-                    for (e = 0; a > e; e += 4) b[d + e >>> 2] = c[e >>> 2];
-                else b.push.apply(b, c);
-                return this.sigBytes += a, this
-            },
-            clamp: function() {
-                var b = this.words,
-                    c = this.sigBytes;
-                b[c >>> 2] &= 4294967295 << 32 - 8 * (c % 4), b.length = a.ceil(c / 4)
-            },
-            clone: function() {
-                var a = e.clone.call(this);
-                return a.words = this.words.slice(0), a
-            },
-            random: function(b) {
-                for (var c = [], d = 0; b > d; d += 4) c.push(4294967296 * a.random() | 0);
-                return f.create(c, b)
-            }
-        }),
-        g = c.enc = {}, h = g.Hex = {
-            stringify: function(a) {
-                for (var b = a.words, a = a.sigBytes, c = [], d = 0; a > d; d++) {
-                    var e = b[d >>> 2] >>> 24 - 8 * (d % 4) & 255;
-                    c.push((e >>> 4).toString(16)), c.push((15 & e).toString(16))
+            }),
+            g = c.enc = {}, h = g.Hex = {
+                stringify: function(a) {
+                    for (var b = a.words, a = a.sigBytes, c = [], d = 0; a > d; d++) {
+                        var e = b[d >>> 2] >>> 24 - 8 * (d % 4) & 255;
+                        c.push((e >>> 4).toString(16)), c.push((15 & e).toString(16))
+                    }
+                    return c.join("")
+                },
+                parse: function(a) {
+                    for (var b = a.length, c = [], d = 0; b > d; d += 2) c[d >>> 3] |= parseInt(a.substr(d, 2), 16) << 24 - 4 * (d % 8);
+                    return f.create(c, b / 2)
                 }
-                return c.join("")
-            },
-            parse: function(a) {
-                for (var b = a.length, c = [], d = 0; b > d; d += 2) c[d >>> 3] |= parseInt(a.substr(d, 2), 16) << 24 - 4 * (d % 8);
-                return f.create(c, b / 2)
-            }
-        }, i = g.Latin1 = {
-            stringify: function(a) {
-                for (var b = a.words, a = a.sigBytes, c = [], d = 0; a > d; d++) c.push(String.fromCharCode(b[d >>> 2] >>> 24 - 8 * (d % 4) & 255));
-                return c.join("")
-            },
-            parse: function(a) {
-                for (var b = a.length, c = [], d = 0; b > d; d++) c[d >>> 2] |= (255 & a.charCodeAt(d)) << 24 - 8 * (d % 4);
-                return f.create(c, b)
-            }
-        }, j = g.Utf8 = {
-            stringify: function(a) {
-                try {
-                    return decodeURIComponent(escape(i.stringify(a)))
-                } catch (b) {
-                    throw Error("Malformed UTF-8 data")
+            }, i = g.Latin1 = {
+                stringify: function(a) {
+                    for (var b = a.words, a = a.sigBytes, c = [], d = 0; a > d; d++) c.push(String.fromCharCode(b[d >>> 2] >>> 24 - 8 * (d % 4) & 255));
+                    return c.join("")
+                },
+                parse: function(a) {
+                    for (var b = a.length, c = [], d = 0; b > d; d++) c[d >>> 2] |= (255 & a.charCodeAt(d)) << 24 - 8 * (d % 4);
+                    return f.create(c, b)
                 }
+            }, j = g.Utf8 = {
+                stringify: function(a) {
+                    try {
+                        return decodeURIComponent(escape(i.stringify(a)))
+                    } catch (b) {
+                        throw Error("Malformed UTF-8 data")
+                    }
+                },
+                parse: function(a) {
+                    return i.parse(unescape(encodeURIComponent(a)))
+                }
+            }, k = d.BufferedBlockAlgorithm = e.extend({
+                reset: function() {
+                    this._data = f.create(), this._nDataBytes = 0
+                },
+                _append: function(a) {
+                    "string" == typeof a && (a = j.parse(a)), this._data.concat(a), this._nDataBytes += a.sigBytes
+                },
+                _process: function(b) {
+                    var c = this._data,
+                        d = c.words,
+                        e = c.sigBytes,
+                        g = this.blockSize,
+                        h = e / (4 * g),
+                        h = b ? a.ceil(h) : a.max((0 | h) - this._minBufferSize, 0),
+                        b = h * g,
+                        e = a.min(4 * b, e);
+                    if (b) {
+                        for (var i = 0; b > i; i += g) this._doProcessBlock(d, i);
+                        i = d.splice(0, b), c.sigBytes -= e
+                    }
+                    return f.create(i, e)
+                },
+                clone: function() {
+                    var a = e.clone.call(this);
+                    return a._data = this._data.clone(), a
+                },
+                _minBufferSize: 0
+            });
+        d.Hasher = k.extend({
+            init: function() {
+                this.reset()
             },
-            parse: function(a) {
-                return i.parse(unescape(encodeURIComponent(a)))
-            }
-        }, k = d.BufferedBlockAlgorithm = e.extend({
             reset: function() {
-                this._data = f.create(), this._nDataBytes = 0
+                k.reset.call(this), this._doReset()
             },
-            _append: function(a) {
-                "string" == typeof a && (a = j.parse(a)), this._data.concat(a), this._nDataBytes += a.sigBytes
+            update: function(a) {
+                return this._append(a), this._process(), this
             },
-            _process: function(b) {
-                var c = this._data,
-                    d = c.words,
-                    e = c.sigBytes,
-                    g = this.blockSize,
-                    h = e / (4 * g),
-                    h = b ? a.ceil(h) : a.max((0 | h) - this._minBufferSize, 0),
-                    b = h * g,
-                    e = a.min(4 * b, e);
-                if (b) {
-                    for (var i = 0; b > i; i += g) this._doProcessBlock(d, i);
-                    i = d.splice(0, b), c.sigBytes -= e
-                }
-                return f.create(i, e)
+            finalize: function(a) {
+                return a && this._append(a), this._doFinalize(), this._hash
             },
             clone: function() {
-                var a = e.clone.call(this);
-                return a._data = this._data.clone(), a
+                var a = k.clone.call(this);
+                return a._hash = this._hash.clone(), a
             },
-            _minBufferSize: 0
+            blockSize: 16,
+            _createHelper: function(a) {
+                return function(b, c) {
+                    return a.create(c).finalize(b)
+                }
+            },
+            _createHmacHelper: function(a) {
+                return function(b, c) {
+                    return l.HMAC.create(a, c).finalize(b)
+                }
+            }
         });
-    d.Hasher = k.extend({
-        init: function() {
-            this.reset()
-        },
-        reset: function() {
-            k.reset.call(this), this._doReset()
-        },
-        update: function(a) {
-            return this._append(a), this._process(), this
-        },
-        finalize: function(a) {
-            return a && this._append(a), this._doFinalize(), this._hash
-        },
-        clone: function() {
-            var a = k.clone.call(this);
-            return a._hash = this._hash.clone(), a
-        },
-        blockSize: 16,
-        _createHelper: function(a) {
-            return function(b, c) {
-                return a.create(c).finalize(b)
-            }
-        },
-        _createHmacHelper: function(a) {
-            return function(b, c) {
-                return l.HMAC.create(a, c).finalize(b)
-            }
-        }
-    });
-    var l = c.algo = {};
-    return c
-}(Math);
-
+        var l = c.algo = {};
+        return c
+    }(Math);
 ! function(a) {
     function b(a, b, c, d, e, f, g) {
         return a = a + (b & c | ~b & d) + e + g, (a << f | a >>> 32 - f) + b
@@ -309,7 +363,697 @@ var CryptoJS = CryptoJS || function(a, b) {
         }
     }), f.MD5 = g._createHelper(i), f.HmacMD5 = g._createHmacHelper(i)
 }(Math),
+function() {
+    if (!BrowserDetect.isWebrtcSupported()) {
+        var a;
+        a = function() {
+            function a(a) {
+                var c = b.getFlashPlayerVersion();
+                return Plivo.logDebug("- Flash Version : " + c.major + "." + c.minor + "." + c.release), 0 === c.major ? void Plivo.onFlashNotInstalled() : (Plivo.logDebug("Initializing flash engine"), l = a, void z(a))
+            }
 
+            function c() {
+                O("_onInit")
+            }
+
+            function d() {
+                Plivo.logDebug("_onDisconnected"), Plivo.onLogout()
+            }
+
+            function e() {
+                Plivo.logNull("_onPrivPopUpClosed"), Plivo.config.mask_page_on_perm && Plivo.unmaskPage(), K(), r.isMuted() ? Plivo.onMediaPermission(!1) : (Plivo.onMediaPermission(!0), Plivo.config.perm_on_click && ("IN" == s ? Plivo.conn.answer() : Plivo.conn.call(x, y)))
+            }
+
+            function f() {
+                var a = document.createElement("div");
+                a.id = "plivo_flash_placeholder", document.body.insertBefore(a, document.body.firstChild)
+            }
+            var g, h, i, j, k, l, m = "phone.plivo.com",
+                n = "rtmp.plivo.com",
+                o = {
+                    rtmp_url: "rtmp://" + n + "/phone",
+                    bridgeName: "flex",
+                    codec: "speex",
+                    aec: "yes",
+                    init_tone: "no"
+                }, p = {
+                    allowScriptAccess: "always"
+                }, q = {}, r = null,
+                s = null,
+                t = "",
+                u = !1,
+                v = !1,
+                w = !1,
+                x = null,
+                y = null,
+                z = function(a) {
+                    f(), o.init_tone = "yes", a.flash_aec === !1 && (o.aec = "no"), "" === a.swf_path ? (Plivo.logDebug("Before Embedding ..."), b.embedSWF("//s3.amazonaws.com/plivosdk/web/plivo.v0.18.8.swf", "plivo_flash_placeholder", "215", "138", "10.0.0", "", o, p, q, function(a) {
+                        console.log(a && a.success ? "Embed Success!" : "Embed Event not Success." + a)
+                    })) : (Plivo.logDebug("Before Embedding " + a.swf_path), b.embedSWF(a.swf_path, "plivo_flash_placeholder", "215", "138", "10.0.0", "", o, p, q, function(a) {
+                        console.log(a && a.success ? "Embed Success!" : "Embed Event not Success." + a)
+                    })), Plivo.logDebug("Post Embedding ..."), FABridge.addInitializationCallback("flex", B);
+                    try {
+                        FABridge.instance && FABridge.instances.flex || Plivo.logDebug("Unable to initialize. Ensure Flash Plugin is permitted by Browser.")
+                    } catch (c) {
+                        Plivo.logDebug("Unknown Initialization Error.")
+                    }
+                }, A = function() {
+                    Plivo.config.mask_page_on_perm && Plivo.maskThePage(), L(), Plivo.onRequirePermission(), r.showPrivacy()
+                }, B = function() {
+                    Plivo.logNull("plivo_flash initCallback"), r = FABridge.flex.root(), r.addEventListener("EvtInit", c), r.addEventListener("EvtConnected", G), r.addEventListener("EvtLogin", H), r.addEventListener("EvtLogout", I), r.addEventListener("EvtMakeCall", F), r.addEventListener("EvtCallState", E), r.addEventListener("EvtHangup", D), r.addEventListener("EvtIncomingCall", C), r.addEventListener("EvtDisconnected", d), r.addEventListener("EvtPrivPopUpClosed", e), r.addEventListener("EvtLog", J), r.addEventListener("EvtMicAvailable", M), r.addEventListener("EvtMicNotAvailable", N), r.isMuted() && !Plivo.config.listen_mode ? (Plivo.logDebug("mic is muted"), document.getElementById("plivo_flash_placeholder").style.zIndex = "999", Plivo.config.perm_on_click ? K() : A()) : (Plivo.logDebug("mic permission is OK"), K())
+                };
+            a.prototype.login = function(a, b) {
+                if (!v) return Plivo.logDebug("error : flash backend is not ready yet. You need to wait for onReady event to be fired before login."), !1;
+                if (void 0 === a || void 0 === b || null === a || null === b) return Plivo.logDebug("username & password cant be null"), !1;
+                if (a.length <= 0 || 0 >= b) return Plivo.logDebug("username & password length should be more than 0"), !1;
+                h = a + "@" + m, k = a;
+                var c = CryptoJS.MD5(a + ":" + m + ":" + b).toString();
+                return r.login(h, c), !0
+            }, a.prototype.logout = function() {
+                return Plivo.conn.ringToneStop(), Plivo.conn.ringBackToneStop(), r.unregister(h, k), r.logout(h), !0
+            }, a.prototype.call = function(a, b) {
+                if (!v) return Plivo.logDebug("error : flash backend is not ready yet"), !1;
+                if (!w) return Plivo.logDebug("error : you need to be logged in before make a call"), !1;
+                if (void 0 === a || null === a || a.length <= 0) return Plivo.logDebug("destination address can't be null and it's lenght must be > 0"), !1;
+                if (r.isMuted() && !Plivo.config.listen_mode) return Plivo.logDebug("Mic is muted, show privacy page"), A(), x = a, y = b, !0;
+                a.indexOf("@") < 0 && (a = a + "@" + m), 0 !== a.indexOf("sip:") && (a = "sip:" + a), Plivo.conn.ringBackTonePlay(), b = b || {};
+                var c = {};
+                for (var d in b) {
+                    var e = b[d].toString();
+                    Plivo.checkExtraHeader(d, e) === !0 && (c[d] = e)
+                }
+                return r.makeCall(a, h, c), !0
+            }, a.prototype.hangup = function() {
+                return Plivo.conn.ringBackToneStop(), r.hangup(i), !0
+            }, a.prototype.send_dtmf = function(a) {
+                return void 0 === a || null === a ? (Plivo.logDebug("DTMF digit can't be null"), !1) : (r.sendDTMF(a, 2e3), Plivo.conn.dtmfTonePlay(a), !0)
+            }, a.prototype.answer = function() {
+                return r.isMuted() && !Plivo.config.listen_mode ? (Plivo.logDebug("Mic is muted, show privacy page"), A(), !0) : (Plivo.logNull("answering=" + j), Plivo.conn.ringToneStop(), r.answer(j), !0)
+            }, a.prototype.reject = function() {
+                return Plivo.conn.ringToneStop(), r.hangup(j), !0
+            }, a.prototype.mute = function() {
+                return Plivo.logNull("mute the mic"), r.setMute(), !0
+            }, a.prototype.unmute = function() {
+                return Plivo.logNull("unmute"), r.setUnMute(), !0
+            }, a.prototype.setTone = function(a) {
+                return r.toneSet("ring_tone", a, ""), !0
+            }, a.prototype.setRingToneBack = function(a) {
+                return r.toneSet("ring_back_tone", a, ""), !0
+            }, a.prototype.setDtmfTone = function(a, b) {
+                return r.toneSet("dtmf_tone", a, b), !0
+            }, a.prototype.checkMic = function() {
+                return r.checkMicStatus(), !0
+            }, a.prototype.getCallStats = function() {
+                return r.getStats(), !0
+            };
+            var C = function(a) {
+                var b, c = {};
+                if (j = a.getUuid(), Plivo.logDebug("_onIncomingCall.uuid=" + j), s) return Plivo.logNull("Another call in progress/active, reject new call"), r.hangup(j);
+                s = "IN", b = JSON.parse(a.getExtraHeaders());
+                for (var d in b) 0 === d.indexOf("rtmp_u__") && (c[d.substring(8)] = b[d]);
+                Plivo.conn.ringTonePlay(), Plivo.onIncomingCall(a.getName(), c)
+            }, D = function() {
+                    Plivo.logNull("_onHangup"), u === !0 ? (u = !1, Plivo.conn.ringToneStop(), Plivo.onCallTerminated()) : "IN" == s ? (Plivo.logNull("hangup.not in call.IN"), Plivo.conn.ringToneStop(), Plivo.onIncomingCallCanceled()) : (Plivo.logNull("hangup.not in call.OUT"), Plivo.conn.ringBackToneStop(), Plivo.onCallFailed()), s = null
+                }, E = function(a) {
+                    uuid = a.getUuid();
+                    var b = a.getState();
+                    return Plivo.logNull("new call state=" + b), b === t ? void Plivo.logNull("new_state == old state. Ignore it") : (t = b, void("ACTIVE" == t ? (u = !0, Plivo.conn.ringBackToneStop(), Plivo.conn.ringToneStop(), Plivo.onCallAnswered()) : "RINGING" == t ? "OUT" == s && Plivo.onCallRemoteRinging() : "HANGUP" == t ? E() : "EARLY" == t && Plivo.conn.ringBackToneStop()))
+                }, F = function(a) {
+                    s = "OUT", number = a.getNumber(), h = a.getAccount(), i = a.getUuid(), Plivo.conn.ringBackTonePlay(), Plivo.onCalling()
+                }, G = function(a) {
+                    Plivo.logDebug("___onConnected"), g = a.getSid(), v = !0, Plivo.onReady()
+                }, H = function(a) {
+                    result = a.getResult(), user = a.getUser(), "success" != result ? (w = !1, Plivo.logNull("login failed"), Plivo.onLoginFailed()) : (w = !0, Plivo.logNull("login OK."), r.register(h, k), Plivo.onLogin())
+                }, I = function() {
+                    w = !1, O("onLogout"), Plivo.onLogout()
+                }, J = function(a) {
+                    Plivo.logNull(a.getMessage())
+                }, K = function() {
+                    Plivo.logDebug("_moveBackFlashObject");
+                    var a = document.getElementById("plivo_flash_placeholder");
+                    a.style.zIndex = "-99", "Safari" != BrowserDetect.browser && (a.style.position = "relative"), a.style.top = "0", a.style.left = "0", "Explorer" == BrowserDetect.browser || "Safari" == BrowserDetect.browser ? (a.width = "1", a.height = "1") : (a.width = "0", a.height = "0")
+                }, L = function() {
+                    Plivo.logDebug("resurrect flash object");
+                    var a = document.getElementById("plivo_flash_placeholder");
+                    a.style.zIndex = "999", a.style.position = "absolute", a.style.visibility = "visible", window.self == window.top ? (a.style.top = "40%", a.style.left = "40%") : (a.style.top = "0", a.style.left = "0"), a.width = "215", a.height = "138"
+                }, M = function() {
+                    Plivo.logDebug("_onMicAvailable"), Plivo.onMicAvailable()
+                }, N = function() {
+                    Plivo.logDebug("_onMicNotAvailable"), Plivo.onMicNotAvailable()
+                }, O = function(a) {
+                    Plivo.logNull(a)
+                };
+            return a.prototype.ringTonePlay = function() {
+                Plivo.ringToneFlag !== !1 && (Plivo.logNull("send play ringtone command to flash"), r.toneCtrl("ring_tone", "play", ""))
+            }, a.prototype.ringToneStop = function() {
+                Plivo.ringToneFlag !== !1 && r.toneCtrl("ring_tone", "stop", "")
+            }, a.prototype.ringBackTonePlay = function() {
+                Plivo.ringToneBackFlag !== !1 && r.toneCtrl("ring_back_tone", "play", "")
+            }, a.prototype.ringBackToneStop = function() {
+                Plivo.ringToneBackFlag !== !1 && r.toneCtrl("ring_back_tone", "stop", "")
+            }, a.prototype.dtmfTonePlay = function(a) {
+                return Plivo.logNull("play dtmf tone:" + a), Plivo.getDtmfToneFlag(a) === !1 ? void Plivo.logNull("dtmfToneFlag == false") : void r.toneCtrl("dtmf_tone", "play", a)
+            }, a
+        }(), window.plivo_flash = a;
+        var b = function() {
+            function a() {
+                if (!S) {
+                    try {
+                        var a = L.getElementsByTagName("body")[0].appendChild(r("span"));
+                        a.parentNode.removeChild(a)
+                    } catch (b) {
+                        return
+                    }
+                    S = !0;
+                    for (var c = O.length, d = 0; c > d; d++) O[d]()
+                }
+            }
+
+            function c(a) {
+                S ? a() : O[O.length] = a
+            }
+
+            function d(a) {
+                if (typeof K.addEventListener != D) K.addEventListener("load", a, !1);
+                else if (typeof L.addEventListener != D) L.addEventListener("load", a, !1);
+                else if (typeof K.attachEvent != D) s(K, "onload", a);
+                else if ("function" == typeof K.onload) {
+                    var b = K.onload;
+                    K.onload = function() {
+                        b(), a()
+                    }
+                } else K.onload = a
+            }
+
+            function e() {
+                N ? f() : g()
+            }
+
+            function f() {
+                var a = L.getElementsByTagName("body")[0],
+                    b = r(E);
+                b.setAttribute("type", H);
+                var c = a.appendChild(b);
+                if (c) {
+                    var d = 0;
+                    ! function() {
+                        if (typeof c.GetVariable != D) {
+                            var e = c.GetVariable("$version");
+                            e && (e = e.split(" ")[1].split(","), V.pv = [parseInt(e[0], 10), parseInt(e[1], 10), parseInt(e[2], 10)])
+                        } else if (10 > d) return d++, void setTimeout(arguments.callee, 10);
+                        a.removeChild(b), c = null, g()
+                    }()
+                } else g()
+            }
+
+            function g() {
+                var a = P.length;
+                if (a > 0)
+                    for (var b = 0; a > b; b++) {
+                        var c = P[b].id,
+                            d = P[b].callbackFn,
+                            e = {
+                                success: !1,
+                                id: c
+                            };
+                        if (V.pv[0] > 0) {
+                            var f = q(c);
+                            if (f)
+                                if (!t(P[b].swfVersion) || V.wk && V.wk < 312)
+                                    if (P[b].expressInstall && i()) {
+                                        var g = {};
+                                        g.data = P[b].expressInstall, g.width = f.getAttribute("width") || "0", g.height = f.getAttribute("height") || "0", f.getAttribute("class") && (g.styleclass = f.getAttribute("class")), f.getAttribute("align") && (g.align = f.getAttribute("align"));
+                                        for (var l = {}, m = f.getElementsByTagName("param"), n = m.length, o = 0; n > o; o++) "movie" != m[o].getAttribute("name").toLowerCase() && (l[m[o].getAttribute("name")] = m[o].getAttribute("value"));
+                                        j(g, l, c, d)
+                                    } else k(f), d && d(e);
+                                    else v(c, !0), d && (e.success = !0, e.ref = h(c), d(e))
+                        } else if (v(c, !0), d) {
+                            var p = h(c);
+                            p && typeof p.SetVariable != D && (e.success = !0, e.ref = p), d(e)
+                        }
+                    }
+            }
+
+            function h(a) {
+                var b = null,
+                    c = q(a);
+                if (c && "OBJECT" == c.nodeName)
+                    if (typeof c.SetVariable != D) b = c;
+                    else {
+                        var d = c.getElementsByTagName(E)[0];
+                        d && (b = d)
+                    }
+                return b
+            }
+
+            function i() {
+                return !T && t("6.0.65") && (V.win || V.mac) && !(V.wk && V.wk < 312)
+            }
+
+            function j(a, b, c, d) {
+                T = !0, z = d || null, A = {
+                    success: !1,
+                    id: c
+                };
+                var e = q(c);
+                if (e) {
+                    "OBJECT" == e.nodeName ? (x = l(e), y = null) : (x = e, y = c), a.id = I, (typeof a.width == D || !/%$/.test(a.width) && parseInt(a.width, 10) < 310) && (a.width = "310"), (typeof a.height == D || !/%$/.test(a.height) && parseInt(a.height, 10) < 137) && (a.height = "137"), L.title = L.title.slice(0, 47) + " - Flash Player Installation";
+                    var f = V.ie && V.win ? "ActiveX" : "PlugIn",
+                        g = "MMredirectURL=" + encodeURI(window.location).toString().replace(/&/g, "%26") + "&MMplayerType=" + f + "&MMdoctitle=" + L.title;
+                    if (typeof b.flashvars != D ? b.flashvars += "&" + g : b.flashvars = g, V.ie && V.win && 4 != e.readyState) {
+                        var h = r("div");
+                        c += "SWFObjectNew", h.setAttribute("id", c), e.parentNode.insertBefore(h, e), e.style.display = "none",
+                        function() {
+                            4 == e.readyState ? e.parentNode.removeChild(e) : setTimeout(arguments.callee, 10)
+                        }()
+                    }
+                    m(a, b, c)
+                }
+            }
+
+            function k(a) {
+                if (V.ie && V.win && 4 != a.readyState) {
+                    var b = r("div");
+                    a.parentNode.insertBefore(b, a), b.parentNode.replaceChild(l(a), b), a.style.display = "none",
+                    function() {
+                        4 == a.readyState ? a.parentNode.removeChild(a) : setTimeout(arguments.callee, 10)
+                    }()
+                } else a.parentNode.replaceChild(l(a), a)
+            }
+
+            function l(a) {
+                var b = r("div");
+                if (V.win && V.ie) b.innerHTML = a.innerHTML;
+                else {
+                    var c = a.getElementsByTagName(E)[0];
+                    if (c) {
+                        var d = c.childNodes;
+                        if (d)
+                            for (var e = d.length, f = 0; e > f; f++) 1 == d[f].nodeType && "PARAM" == d[f].nodeName || 8 == d[f].nodeType || b.appendChild(d[f].cloneNode(!0))
+                    }
+                }
+                return b
+            }
+
+            function m(a, b, c) {
+                var d, e = q(c);
+                if (V.wk && V.wk < 312) return d;
+                if (e)
+                    if (typeof a.id == D && (a.id = c), V.ie && V.win) {
+                        var f = "";
+                        for (var g in a) a[g] != Object.prototype[g] && ("data" == g.toLowerCase() ? b.movie = a[g] : "styleclass" == g.toLowerCase() ? f += ' class="' + a[g] + '"' : "classid" != g.toLowerCase() && (f += " " + g + '="' + a[g] + '"'));
+                        var h = "";
+                        for (var i in b) b[i] != Object.prototype[i] && (h += '<param name="' + i + '" value="' + b[i] + '" />');
+                        e.outerHTML = '<object classid="clsid:D27CDB6E-AE6D-11cf-96B8-444553540000"' + f + ">" + h + "</object>", Q[Q.length] = a.id, d = q(a.id)
+                    } else {
+                        var j = r(E);
+                        j.setAttribute("type", H);
+                        for (var k in a) a[k] != Object.prototype[k] && ("styleclass" == k.toLowerCase() ? j.setAttribute("class", a[k]) : "classid" != k.toLowerCase() && j.setAttribute(k, a[k]));
+                        for (var l in b) b[l] != Object.prototype[l] && "movie" != l.toLowerCase() && n(j, l, b[l]);
+                        e.parentNode.replaceChild(j, e), d = j
+                    }
+                return d
+            }
+
+            function n(a, b, c) {
+                var d = r("param");
+                d.setAttribute("name", b), d.setAttribute("value", c), a.appendChild(d)
+            }
+
+            function o(a) {
+                var b = q(a);
+                b && "OBJECT" == b.nodeName && (V.ie && V.win ? (b.style.display = "none", function() {
+                    4 == b.readyState ? p(a) : setTimeout(arguments.callee, 10)
+                }()) : b.parentNode.removeChild(b))
+            }
+
+            function p(a) {
+                var b = q(a);
+                if (b) {
+                    for (var c in b) "function" == typeof b[c] && (b[c] = null);
+                    b.parentNode.removeChild(b)
+                }
+            }
+
+            function q(a) {
+                var b = null;
+                try {
+                    b = L.getElementById(a)
+                } catch (c) {}
+                return b
+            }
+
+            function r(a) {
+                return L.createElement(a)
+            }
+
+            function s(a, b, c) {
+                a.attachEvent(b, c), R[R.length] = [a, b, c]
+            }
+
+            function t(a) {
+                var b = V.pv,
+                    c = a.split(".");
+                return c[0] = parseInt(c[0], 10), c[1] = parseInt(c[1], 10) || 0, c[2] = parseInt(c[2], 10) || 0, b[0] > c[0] || b[0] == c[0] && b[1] > c[1] || b[0] == c[0] && b[1] == c[1] && b[2] >= c[2] ? !0 : !1
+            }
+
+            function u(a, b, c, d) {
+                if (!V.ie || !V.mac) {
+                    var e = L.getElementsByTagName("head")[0];
+                    if (e) {
+                        var f = c && "string" == typeof c ? c : "screen";
+                        if (d && (B = null, C = null), !B || C != f) {
+                            var g = r("style");
+                            g.setAttribute("type", "text/css"), g.setAttribute("media", f), B = e.appendChild(g), V.ie && V.win && typeof L.styleSheets != D && L.styleSheets.length > 0 && (B = L.styleSheets[L.styleSheets.length - 1]), C = f
+                        }
+                        V.ie && V.win ? B && typeof B.addRule == E && B.addRule(a, b) : B && typeof L.createTextNode != D && B.appendChild(L.createTextNode(a + " {" + b + "}"))
+                    }
+                }
+            }
+
+            function v(a, b) {
+                if (U) {
+                    var c = b ? "visible" : "hidden";
+                    if (S && q(a)) {
+                        var d = document.getElementById(a);
+                        d.style.visibility = c, d.style.position = "absolute", d.style.top = "-15000", d.style.left = "-15000", d.style.zIndex = "-999"
+                    } else u("#" + a, "visibility:" + c)
+                }
+            }
+
+            function w(a) {
+                var b = /[\\\"<>\.;]/,
+                    c = null !== b.exec(a);
+                return c && typeof encodeURIComponent != D ? encodeURIComponent(a) : a
+            } {
+                var x, y, z, A, B, C, D = "undefined",
+                    E = "object",
+                    F = "Shockwave Flash",
+                    G = "ShockwaveFlash.ShockwaveFlash",
+                    H = "application/x-shockwave-flash",
+                    I = "SWFObjectExprInst",
+                    J = "onreadystatechange",
+                    K = window,
+                    L = document,
+                    M = navigator,
+                    N = !1,
+                    O = [e],
+                    P = [],
+                    Q = [],
+                    R = [],
+                    S = !1,
+                    T = !1,
+                    U = !0,
+                    V = function() {
+                        var a = typeof L.getElementById != D && typeof L.getElementsByTagName != D && typeof L.createElement != D,
+                            b = M.userAgent.toLowerCase(),
+                            c = M.platform.toLowerCase(),
+                            d = /win/.test(c ? c : b),
+                            e = /mac/.test(c ? c : b),
+                            f = /webkit/.test(b) ? parseFloat(b.replace(/^.*webkit\/(\d+(\.\d+)?).*$/, "$1")) : !1,
+                            g = !1,
+                            h = [0, 0, 0],
+                            i = null;
+                        if (typeof M.plugins != D && typeof M.plugins[F] == E) i = M.plugins[F].description, !i || typeof M.mimeTypes != D && M.mimeTypes[H] && !M.mimeTypes[H].enabledPlugin || (N = !0, g = !1, i = i.replace(/^.*\s+(\S+\s+\S+$)/, "$1"), h[0] = parseInt(i.replace(/^(.*)\..*$/, "$1"), 10), h[1] = parseInt(i.replace(/^.*\.(.*)\s.*$/, "$1"), 10), h[2] = /[a-zA-Z]/.test(i) ? parseInt(i.replace(/^.*[a-zA-Z]+(.*)$/, "$1"), 10) : 0);
+                        else if (typeof K.ActiveXObject != D) try {
+                            var j = new ActiveXObject(G);
+                            j && (i = j.GetVariable("$version"), i && (g = !0, i = i.split(" ")[1].split(","), h = [parseInt(i[0], 10), parseInt(i[1], 10), parseInt(i[2], 10)]))
+                        } catch (k) {}
+                        return {
+                            w3: a,
+                            pv: h,
+                            wk: f,
+                            ie: g,
+                            win: d,
+                            mac: e
+                        }
+                    }();
+                ! function() {
+                    V.w3 && ((typeof L.readyState != D && "complete" == L.readyState || typeof L.readyState == D && (L.getElementsByTagName("body")[0] || L.body)) && a(), S || (typeof L.addEventListener != D && L.addEventListener("DOMContentLoaded", a, !1), V.ie && V.win && (L.attachEvent(J, function() {
+                        "complete" == L.readyState && (L.detachEvent(J, arguments.callee), a())
+                    }), K == top && ! function() {
+                        if (!S) {
+                            try {
+                                L.documentElement.doScroll("left")
+                            } catch (b) {
+                                return void setTimeout(arguments.callee, 0)
+                            }
+                            a()
+                        }
+                    }()), V.wk && ! function() {
+                        return S ? void 0 : /loaded|complete/.test(L.readyState) ? void a() : void setTimeout(arguments.callee, 0)
+                    }(), d(a)))
+                }(),
+                function() {
+                    V.ie && V.win && window.attachEvent("onunload", function() {
+                        for (var a = R.length, c = 0; a > c; c++) R[c][0].detachEvent(R[c][1], R[c][2]);
+                        for (var d = Q.length, e = 0; d > e; e++) o(Q[e]);
+                        for (var f in V) V[f] = null;
+                        V = null;
+                        for (var g in b) b[g] = null;
+                        b = null
+                    })
+                }()
+            }
+            return {
+                registerObject: function(a, b, c, d) {
+                    if (V.w3 && a && b) {
+                        var e = {};
+                        e.id = a, e.swfVersion = b, e.expressInstall = c, e.callbackFn = d, P[P.length] = e, v(a, !1)
+                    } else d && d({
+                        success: !1,
+                        id: a
+                    })
+                },
+                getObjectById: function(a) {
+                    return V.w3 ? h(a) : void 0
+                },
+                embedSWF: function(a, b, d, e, f, g, h, k, l, n) {
+                    var o = {
+                        success: !1,
+                        id: b
+                    };
+                    V.w3 && !(V.wk && V.wk < 312) && a && b && d && e && f ? (v(b, !1), c(function() {
+                        d += "", e += "";
+                        var c = {};
+                        if (l && typeof l === E)
+                            for (var p in l) c[p] = l[p];
+                        c.data = a, c.width = d, c.height = e;
+                        var q = {};
+                        if (k && typeof k === E)
+                            for (var r in k) q[r] = k[r];
+                        if (h && typeof h === E)
+                            for (var s in h) typeof q.flashvars != D ? q.flashvars += "&" + s + "=" + h[s] : q.flashvars = s + "=" + h[s];
+                        if (t(f)) {
+                            var u = m(c, q, b);
+                            c.id == b && v(b, !0), o.success = !0, o.ref = u
+                        } else {
+                            if (g && i()) return c.data = g, void j(c, q, b, n);
+                            v(b, !0)
+                        }
+                        n && n(o)
+                    })) : n && n(o)
+                },
+                switchOffAutoHideShow: function() {
+                    U = !1
+                },
+                ua: V,
+                getFlashPlayerVersion: function() {
+                    return {
+                        major: V.pv[0],
+                        minor: V.pv[1],
+                        release: V.pv[2]
+                    }
+                },
+                hasFlashPlayerVersion: t,
+                createSWF: function(a, b, c) {
+                    return V.w3 ? m(a, b, c) : void 0
+                },
+                showExpressInstall: function(a, b, c, d) {
+                    V.w3 && i() && j(a, b, c, d)
+                },
+                removeSWF: function(a) {
+                    V.w3 && o(a)
+                },
+                createCSS: function(a, b, c, d) {
+                    V.w3 && u(a, b, c, d)
+                },
+                addDomLoadEvent: c,
+                addLoadEvent: d,
+                getQueryParamValue: function(a) {
+                    var b = L.location.search || L.location.hash;
+                    if (b) {
+                        if (/\?/.test(b) && (b = b.split("?")[1]), null === a) return w(b);
+                        for (var c = b.split("&"), d = 0; d < c.length; d++)
+                            if (c[d].substring(0, c[d].indexOf("=")) == a) return w(c[d].substring(c[d].indexOf("=") + 1))
+                    }
+                    return ""
+                },
+                expressInstallCallback: function() {
+                    if (T) {
+                        var a = q(I);
+                        a && x && (a.parentNode.replaceChild(x, a), y && (v(y, !0), V.ie && V.win && (x.style.display = "block")), z && z(A)), T = !1
+                    }
+                }
+            }
+        }()
+    }
+}.call(this), FABridge.TYPE_ASINSTANCE = 1, FABridge.TYPE_ASFUNCTION = 2, FABridge.TYPE_JSFUNCTION = 3, FABridge.TYPE_ANONYMOUS = 4, FABridge.initCallbacks = {}, FABridge.argsToArray = function(a) {
+    for (var b = [], c = 0; c < a.length; c++) b[c] = a[c];
+    return b
+}, FABridge.addInitializationCallback = function(a, b) {
+    var c = FABridge.instances[a];
+    if (void 0 != c) return void b.call(c);
+    var d = FABridge.initCallbacks[a];
+    null == d && (FABridge.initCallbacks[a] = d = []), d.push(b)
+}, FABridge.nextBridgeID = 0, FABridge.instances = {}, FABridge.idMap = {}, FABridge.refCount = 0, FABridge.extractBridgeFromID = function(a) {
+    var b = a >> 16;
+    return FABridge.idMap[b]
+}, FABridge.attachBridge = function(a, b) {
+    var c = new FABridge(a, b);
+    FABridge[b] = c;
+    var d = FABridge.initCallbacks[b];
+    if (null != d) {
+        for (var e = 0; e < d.length; e++) d[e].call(c);
+        delete FABridge.initCallbacks[b]
+    }
+}, FABridge.blockedMethods = {
+    toString: !0,
+    get: !0,
+    set: !0,
+    call: !0
+}, FABridge.prototype = {
+    root: function() {
+        return this.deserialize(this.target.getRoot())
+    },
+    releaseASObjects: function() {
+        return this.target.releaseASObjects()
+    },
+    releaseNamedASObject: function(a) {
+        if ("object" != typeof a) return !1;
+        var b = this.target.releaseNamedASObject(a.fb_instance_id);
+        return b
+    },
+    create: function(a) {
+        return this.deserialize(this.target.create(a))
+    },
+    makeID: function(a) {
+        return (this.bridgeID << 16) + a
+    },
+    getPropertyFromAS: function(a, b) {
+        if (FABridge.refCount > 0) throw new Error("You are trying to call recursively into the Flash Player which is not allowed. In most cases the JavaScript setTimeout function, can be used as a workaround.");
+        return FABridge.refCount++, retVal = this.target.getPropFromAS(a, b), retVal = this.handleError(retVal), FABridge.refCount--, retVal
+    },
+    setPropertyInAS: function(a, b, c) {
+        if (FABridge.refCount > 0) throw new Error("You are trying to call recursively into the Flash Player which is not allowed. In most cases the JavaScript setTimeout function, can be used as a workaround.");
+        return FABridge.refCount++, retVal = this.target.setPropInAS(a, b, this.serialize(c)), retVal = this.handleError(retVal), FABridge.refCount--, retVal
+    },
+    callASFunction: function(a, b) {
+        if (FABridge.refCount > 0) throw new Error("You are trying to call recursively into the Flash Player which is not allowed. In most cases the JavaScript setTimeout function, can be used as a workaround.");
+        return FABridge.refCount++, retVal = this.target.invokeASFunction(a, this.serialize(b)), retVal = this.handleError(retVal), FABridge.refCount--, retVal
+    },
+    callASMethod: function(a, b, c) {
+        if (FABridge.refCount > 0) throw new Error("You are trying to call recursively into the Flash Player which is not allowed. In most cases the JavaScript setTimeout function, can be used as a workaround.");
+        return FABridge.refCount++, c = this.serialize(c), retVal = this.target.invokeASMethod(a, b, c), retVal = this.handleError(retVal), FABridge.refCount--, retVal
+    },
+    invokeLocalFunction: function(a, b) {
+        var c, d = this.localFunctionCache[a];
+        return void 0 != d && (c = this.serialize(d.apply(null, this.deserialize(b)))), c
+    },
+    getTypeFromName: function(a) {
+        return this.remoteTypeCache[a]
+    },
+    createProxy: function(a, b) {
+        var c = this.getTypeFromName(b);
+        instanceFactory.prototype = c;
+        var d = new instanceFactory(a);
+        return this.remoteInstanceCache[a] = d, d
+    },
+    getProxy: function(a) {
+        return this.remoteInstanceCache[a]
+    },
+    addTypeDataToCache: function(a) {
+        newType = new ASProxy(this, a.name);
+        for (var b = a.accessors, c = 0; c < b.length; c++) this.addPropertyToType(newType, b[c]);
+        for (var d = a.methods, c = 0; c < d.length; c++) void 0 == FABridge.blockedMethods[d[c]] && this.addMethodToType(newType, d[c]);
+        return this.remoteTypeCache[newType.typeName] = newType, newType
+    },
+    addPropertyToType: function(a, b) {
+        var c, d, e = b.charAt(0);
+        e >= "a" && "z" >= e ? (d = "get" + e.toUpperCase() + b.substr(1), c = "set" + e.toUpperCase() + b.substr(1)) : (d = "get" + b, c = "set" + b), a[c] = function(a) {
+            this.bridge.setPropertyInAS(this.fb_instance_id, b, a)
+        }, a[d] = function() {
+            return this.bridge.deserialize(this.bridge.getPropertyFromAS(this.fb_instance_id, b))
+        }
+    },
+    addMethodToType: function(a, b) {
+        a[b] = function() {
+            return this.bridge.deserialize(this.bridge.callASMethod(this.fb_instance_id, b, FABridge.argsToArray(arguments)))
+        }
+    },
+    getFunctionProxy: function(a) {
+        var b = this;
+        return null == this.remoteFunctionCache[a] && (this.remoteFunctionCache[a] = function() {
+            b.callASFunction(a, FABridge.argsToArray(arguments))
+        }), this.remoteFunctionCache[a]
+    },
+    getFunctionID: function(a) {
+        return void 0 == a.__bridge_id__ && (a.__bridge_id__ = this.makeID(this.nextLocalFuncID++), this.localFunctionCache[a.__bridge_id__] = a), a.__bridge_id__
+    },
+    serialize: function(a) {
+        var b = {}, c = typeof a;
+        if ("number" == c || "string" == c || "boolean" == c || null == c || void 0 == c) b = a;
+        else if (a instanceof Array) {
+            b = [];
+            for (var d = 0; d < a.length; d++) b[d] = this.serialize(a[d])
+        } else "function" == c ? (b.type = FABridge.TYPE_JSFUNCTION, b.value = this.getFunctionID(a)) : a instanceof ASProxy ? (b.type = FABridge.TYPE_ASINSTANCE, b.value = a.fb_instance_id) : (b.type = FABridge.TYPE_ANONYMOUS, b.value = a);
+        return b
+    },
+    deserialize: function(a) {
+        var b, c = typeof a;
+        if ("number" == c || "string" == c || "boolean" == c || null == a || void 0 == a) b = this.handleError(a);
+        else if (a instanceof Array) {
+            b = [];
+            for (var d = 0; d < a.length; d++) b[d] = this.deserialize(a[d])
+        } else if ("object" == c) {
+            for (var d = 0; d < a.newTypes.length; d++) this.addTypeDataToCache(a.newTypes[d]);
+            for (var e in a.newRefs) this.createProxy(e, a.newRefs[e]);
+            a.type == FABridge.TYPE_PRIMITIVE ? b = a.value : a.type == FABridge.TYPE_ASFUNCTION ? b = this.getFunctionProxy(a.value) : a.type == FABridge.TYPE_ASINSTANCE ? b = this.getProxy(a.value) : a.type == FABridge.TYPE_ANONYMOUS && (b = a.value)
+        }
+        return b
+    },
+    addRef: function(a) {
+        this.target.incRef(a.fb_instance_id)
+    },
+    release: function(a) {
+        this.target.releaseRef(a.fb_instance_id)
+    },
+    handleError: function(a) {
+        if ("string" == typeof a && 0 == a.indexOf("__FLASHERROR")) {
+            var b = a.split("||");
+            throw FABridge.refCount > 0 && FABridge.refCount--, new Error(b[1])
+        }
+        return a
+    }
+}, ASProxy = function(a, b) {
+    return this.bridge = a, this.typeName = b, this
+}, ASProxy.prototype = {
+    get: function(a) {
+        return this.bridge.deserialize(this.bridge.getPropertyFromAS(this.fb_instance_id, a))
+    },
+    set: function(a, b) {
+        this.bridge.setPropertyInAS(this.fb_instance_id, a, b)
+    },
+    call: function(a, b) {
+        this.bridge.callASMethod(this.fb_instance_id, a, b)
+    },
+    addRef: function() {
+        this.bridge.addRef(this)
+    },
+    release: function() {
+        this.bridge.release(this)
+    }
+},
 function() {
     var a;
     a = function() {
@@ -331,28 +1075,17 @@ function() {
                 "#": !0,
                 "*": !0
             };
-        a.prototype.onReady = function() {
-        }, a.prototype.onLogin = function() {
-        }, a.prototype.onLoginFailed = function() {
-        }, a.prototype.onLogout = function() {
-        }, a.prototype.onCalling = function() {
-        }, a.prototype.onCallRemoteRinging = function() {
-        }, a.prototype.onCallAnswered = function() {
-        }, a.prototype.onCallTerminated = function() {
-        }, a.prototype.onIncomingCall = function() {
-        }, a.prototype.onIncomingCallCanceled = function() {
+        a.prototype.onReady = function() {}, a.prototype.onLogin = function() {}, a.prototype.onLoginFailed = function() {}, a.prototype.onLogout = function() {}, a.prototype.onCalling = function() {}, a.prototype.onCallRemoteRinging = function() {}, a.prototype.onCallAnswered = function() {}, a.prototype.onCallTerminated = function() {}, a.prototype.onIncomingCall = function() {}, a.prototype.onIncomingCallCanceled = function() {
             Plivo.logDevel("onIncomingCallCanceled stub")
         }, a.prototype.onCallFailed = function() {
             Plivo.logDevel("onCallFailed stub")
         }, a.prototype.onMediaPermission = function() {
             Plivo.logDevel("onMediaPermission")
-        }, a.prototype.onRequirePermission = function() {
-        }, a.prototype.onWebrtcNotSupported = function() {
+        }, a.prototype.onRequirePermission = function() {}, a.prototype.onWebrtcNotSupported = function() {
             console.warn("your browser doesn't support webrtc")
         }, a.prototype.onFlashNotInstalled = function() {
             console.warn("your browser doesn't have flash installed")
-        }, a.prototype.onMicAvailable = function() {
-        }, a.prototype.onMicNotAvailable = function() {};
+        }, a.prototype.onMicAvailable = function() {}, a.prototype.onMicNotAvailable = function() {};
         var i = function(a) {
             return "undefined" == typeof a && (a = {}), "undefined" == typeof a.fallback_to_flash && (a.fallback_to_flash = !0), "undefined" == typeof a.debug && (a.debug = !0), "undefined" == typeof a.mask_page_on_perm && (a.mask_page_on_perm = !1), "undefined" == typeof a.perm_on_click && (a.perm_on_click = !1), "undefined" == typeof a.listen_mode && (a.listen_mode = !1), "undefined" == typeof a.flash_aec && (a.flash_aec = !0), "undefined" == typeof a.swf_path && (a.swf_path = ""), a
         };
@@ -360,8 +1093,8 @@ function() {
             d = BrowserDetect.browser, c = BrowserDetect.version, "MSIE" == d && p(), Plivo.config = e = i(a), Plivo.logDebug("Plivo SDK initialization"), Plivo.logDebug("- User Agent : " + navigator.userAgent), Plivo.logDebug("- Browser : " + d + "  " + c), Plivo.logDebug("- OS : " + BrowserDetect.OS), BrowserDetect.isWebrtcSupported() ? (Plivo.conn = new plivojs(e), Plivo.conn.init(e), b = "webrtc", j()) : e.fallback_to_flash ? (Plivo.conn = new plivo_flash(e), b = "flash") : Plivo.onWebrtcNotSupported()
         };
         var j = function() {
-            var a = "assets/audio/us-ring.mp3";
-            "Firefox" == d && (a = "assets/audio/us-ring.ogg"), o(), m(a), n(a)
+            var a = "https://s3.amazonaws.com/plivosdk/audio/us-ring.mp3";
+            "Firefox" == d && (a = "https://s3.amazonaws.com/plivosdk/audio/us-ring.ogg"), o(), m(a), n(a)
         };
         a.prototype.setRingTone = function(a) {
             if (a === !1 || null === a) f = !1;
@@ -421,7 +1154,7 @@ function() {
                 var b = document.createElement("audio");
                 b.id = "plivo_ringtone", b.loop = "loop", b.src = a, document.body.appendChild(b)
             }, o = function() {
-                var a, b = "assets/audio/dtmf-";
+                var a, b = "https://s3.amazonaws.com/plivosdk/audio/dtmf-";
                 a = "Firefox" == d ? "ogg" : "mp3";
                 for (var c = function(a, b, c) {
                     var d = "dtmf" + b,
@@ -436,10 +1169,7 @@ function() {
             };
         return a
     }(), window.plivo_stub = a
-}.call(this),
-
-window.Plivo = new plivo_stub,
-
+}.call(this), window.Plivo = new plivo_stub,
 function(a) {
     var b = function() {
         "use strict";
@@ -875,7 +1605,7 @@ function(a) {
             },
             getHeader: function(b, c) {
                 var d = this.headers[a.Utils.headerize(b)];
-                return c = c || 0, d && d[c] ? d[c].raw : void 0
+                return c = c || 0, d ? d[c] ? d[c].raw : void 0 : void 0
             },
             getHeaderAll: function(b) {
                 var c, d, e = this.headers[a.Utils.headerize(b)],
@@ -2292,7 +3022,7 @@ function(a) {
             mandatory: {
                 uri: function(a) {
                     var c;
-                    return /^sip:/i.test(a) || (a = b.C.SIP + ":" + a), c = b.URI.parse(a), c && c.user ? c : void 0
+                    return /^sip:/i.test(a) || (a = b.C.SIP + ":" + a), c = b.URI.parse(a), c ? c.user ? c : void 0 : void 0
                 },
                 ws_servers: function(a) {
                     var c, e, f;
@@ -2390,7 +3120,7 @@ function(a) {
                 return a.unescape(encodeURIComponent(b)).length
             },
             isFunction: function(a) {
-                return void 0 !== a && "[object Function]" === Object.prototype.toString.call(a) ? !0 : !1
+                return void 0 !== a ? "[object Function]" === Object.prototype.toString.call(a) ? !0 : !1 : !1
             },
             isDecimal: function(a) {
                 return !isNaN(a) && parseFloat(a) === parseInt(a, 10)
@@ -2664,9 +3394,7 @@ function(a) {
             return this.remoteStreams
         })), c.isSupported = c.getUserMedia && c.RTCPeerConnection && c.RTCSessionDescription ? !0 : !1, b.WebRTC = c
     }(b), a.WebSDK = b
-}(window),
-
-WebSDK.Grammar = function() {
+}(window), WebSDK.Grammar = function() {
     function a(a) {
         return '"' + a.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\x08/g, "\\b").replace(/\t/g, "\\t").replace(/\n/g, "\\n").replace(/\f/g, "\\f").replace(/\r/g, "\\r").replace(/[\x00-\x07\x0B\x0E-\x1F\x80-\uFFFF]/g, escape) + '"'
     }
@@ -4538,7 +5266,6 @@ WebSDK.Grammar = function() {
         this.name = "SyntaxError", this.expected = b, this.found = c, this.message = g(b, c), this.offset = d, this.line = e, this.column = f
     }, b.SyntaxError.prototype = Error.prototype, b
 }(),
-
 function() {
     var a;
     a = function() {
@@ -4587,7 +5314,7 @@ function() {
             if (void 0 === a || void 0 === b || null === a || null === b) return Plivo.logDebug("username & password cant be null"), !1;
             if (a.length <= 0 || 0 >= b) return Plivo.logDebug("username & password length should be more than 0"), !1;
             var d = {
-                ws_servers: ["wss://phone.plivo.com:5063"],
+                ws_servers: ["wss://phone.plivo.com:443"],
                 register_expires: 120,
                 stun_servers: ["stun:23.21.150.121:3478", "stun:216.93.246.18:3478", "stun:66.228.45.110:3478", "stun:173.194.78.127:19302"],
                 uri: a + "@" + f,
@@ -4642,8 +5369,7 @@ function() {
                 }
             }, d.answer(opts), Plivo.conn.ringToneStop(), !0) : (Plivo.logDebug("answer() failed : no incoming call"), !1)
         }, a.prototype.hangup = function() {
-            //Manual Stream Stop Removed
-            return d ? (d.terminate(), Plivo.conn.rbToneStop(), !0) : (Plivo.logDebug("hangup() failed:no call session exist"), !1)
+            return d ? (D(), d.terminate(), Plivo.conn.rbToneStop(), !0) : (Plivo.logDebug("hangup() failed:no call session exist"), !1)
         }, a.prototype.reject = function() {
             if (!d) return Plivo.logDebug("reject() failed : no incoming call"), !1;
             var a = {
@@ -4655,13 +5381,13 @@ function() {
             return void 0 === a || null === a ? (Plivo.logDebug("DTMF digit can't be null"), !1) : d ? (d.sendDTMF(a), Plivo.conn.dtmfTonePlay(a), !0) : !1
         }, a.prototype.mute = function() {
             if (!d) return Plivo.logDebug("there is no active call session"), !1;
-            var a = D();
+            var a = E();
             if (a)
                 for (var b = 0; b < a.length; b++) a[b].enabled = !1;
             return !0
         }, a.prototype.unmute = function() {
             if (!d) return Plivo.logDebug("There is no active call session"), !1;
-            var a = D();
+            var a = E();
             if (a)
                 for (var b = 0; b < a.length; b++) a[b].enabled = !0;
             return !0
@@ -4677,8 +5403,6 @@ function() {
             }, r = function() {
                 Plivo.logDevel("_onLogout"), g = !1, Plivo.conn.rbToneStop(), Plivo.conn.ringToneStop(), Plivo.onLogout()
             }, s = function(a) {
-                // Manual getUserMedia Call
-                //Plivo.conn._getLocalMedia();
                 m = "incoming", d.on("progress", w), d.on("failed", x), d.on("started", z), d.on("ended", A);
                 var c = a.data.request,
                     e = c.headers,
@@ -4704,10 +5428,6 @@ function() {
                 Plivo.logDevel(e + "_onIncCallProgress")
             }, x = function(a) {
                 Plivo.gotEarlyMedia = !1, Plivo.logDevel(e + ":call failed:" + a.data.cause), "Chrome" == BrowserDetect.browser && 25 == BrowserDetect.version && (document.getElementById(i).muted = !0), d = null, a.data.cause == WebSDK.C.causes.CANCELED && "incoming" == m ? (Plivo.conn.ringToneStop(), Plivo.onIncomingCallCanceled()) : (Plivo.conn.rbToneStop(), Plivo.onCallFailed(a.data.cause)), m = null
-                // Manually stop getUserMedia stream
-                //storedStream.stop();
-                // Live microphone indicator
-                //localStorage.removeItem("hotMic");
             }, y = function() {
                 var a = document.getElementById(i);
                 d.getRemoteStreams().length > 0 && (a.src = window.URL.createObjectURL(d.getRemoteStreams()[0])), 25 == BrowserDetect.version && (a.muted = !1)
@@ -4718,11 +5438,7 @@ function() {
                 }
                 Plivo.logDevel(e + ":onCallStarted"), "Chrome" == BrowserDetect.browser && (d.getLocalStreams().length > 0 && (a.src = window.URL.createObjectURL(d.getLocalStreams()[0])), y()), Plivo.conn.rbToneStop(), Plivo.conn.ringToneStop(), "undefined" != typeof PlivoDebug && null !== PlivoDebug && PlivoDebug.setPC(d.rtcMediaHandler.peerConnection), Plivo.onCallAnswered()
             }, A = function() {
-                Plivo.gotEarlyMedia = !1, Plivo.logDevel("onCallEnded"), "Chrome" == BrowserDetect.browser && 25 == BrowserDetect.version && (document.getElementById(i).muted = !0), Plivo.config.listen_mode || Plivo.conn.unmute(), Plivo.conn.ringToneStop(), d = null, m = null, Plivo.onCallTerminated()
-                // Manually stop getUserMedia stream
-                //storedStream.stop();
-                // Live microphone indicator
-                //localStorage.removeItem("hotMic");
+                Plivo.gotEarlyMedia = !1, Plivo.logDevel("onCallEnded"), "Chrome" == BrowserDetect.browser && 25 == BrowserDetect.version && (document.getElementById(i).muted = !0), Plivo.config.listen_mode || D(), Plivo.conn.ringToneStop(), d = null, m = null, Plivo.onCallTerminated()
             }, B = function(a) {
                 try {
                     document.getElementById(a).play()
@@ -4748,11 +5464,12 @@ function() {
             Plivo.getDtmfToneFlag(a) !== !1 && (elem_name = null, elem_name = "*" == a ? "dtmfstar" : "#" == a ? "dtmfpound" : "dtmf" + a, B(elem_name))
         };
         var D = function() {
+            return "Chrome" == BrowserDetect.browser ? d.getLocalStreams()[0].stop() : "Firefox" == BrowserDetect.browser && j.stop()
+        };
+        var E = function() {
             var a = null;
             return "Chrome" == BrowserDetect.browser ? a = d.getLocalStreams()[0].audioTracks || d.getLocalStreams()[0].getAudioTracks() : "Firefox" == BrowserDetect.browser && (a = j.getAudioTracks()), a
         };
         return a
     }(), window.plivojs = a
 }.call(this);
-
-/* This code has been modified, ability to fallback to flash has been removed */
